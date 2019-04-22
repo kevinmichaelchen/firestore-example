@@ -51,7 +51,7 @@ We have:
 - 285 documents in "folders/foods/folders"
 
 You'd think querying for 50 food roots would be quick since the result set
-isn't very large, but it ends up taking ~2s.
+isn't very large, but it ends up taking ~2s. :bomb: :bomb: :bomb: :bomb: 
 
 Querying for a small subcollection, on the other hand, is blazing fast.
 
