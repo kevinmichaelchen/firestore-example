@@ -86,4 +86,9 @@ if _, err := client.Doc("folders/bullshit").Delete(ctx); err != nil {
 }
 ```
 
-## Is there a 500 entity limit?
+## Is there a 500 entity transaction limit?
+No. 
+
+Datastore infamously prevents you from modifying more than 500 entities per transaction.
+
+However, this limitation does not exist in Firestore. 

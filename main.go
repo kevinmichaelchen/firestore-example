@@ -67,9 +67,8 @@ func main() {
 	var totalRoots, n, t int
 	var e time.Duration
 
-	if _, err := client.Doc("folders/bullshit").Delete(ctx); err != nil {
-		log.Fatalf("could not delete bullshit: %v", err)
-	}
+	testDeletingNonExistentDoc(ctx, client)
+	testTransactionLimit(ctx, client)
 
 	totalRoots = countItemsInCollection(ctx, client, "folders")
 
@@ -90,6 +89,30 @@ func main() {
 	e, n = iterateOverSubcollection(ctx, client, "folders/foods/folders")
 	log.Infof("Iterated over %d / %d (%.2f%%) food SUBS in %s",
 		n, t, 100*(float64(n)/float64(t)), e)
+}
+
+func testDeletingNonExistentDoc(ctx context.Context, client *firestore.Client) {
+	if _, err := client.Doc("folders/bullshit").Delete(ctx); err != nil {
+		log.Fatalf("could not delete bullshit: %v", err)
+	}
+}
+
+func testTransactionLimit(ctx context.Context, client *firestore.Client) {
+	err := client.RunTransaction(ctx, func(c context.Context, tx *firestore.Transaction) error {
+		for i := 0; i < 501; i++ {
+			id := uuid.Must(uuid.NewRandom()).String()
+			rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
+			rootDoc := &Folder{ID: id}
+
+			if err := tx.Set(rootLevelDocumentRef, rootDoc); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("transaction threw error: %v", err)
+	}
 }
 
 func countItemsInCollection(ctx context.Context, client *firestore.Client, path string) int {
@@ -146,7 +169,7 @@ func seedStuff(ctx context.Context, client *firestore.Client) {
 	// Create a ton of root-level folders
 	for i := 0; i < 0; i++ {
 		log.Infof("Creating random doc #%d folder in /folders", i)
-		seedRootFolder(ctx, client)
+		seedRandomRootFolder(ctx, client)
 	}
 
 	// Create a ton of subcollection sports
@@ -193,7 +216,7 @@ func seedFolder(ctx context.Context, client *firestore.Client, id, parentID stri
 	}
 }
 
-func seedRootFolder(ctx context.Context, client *firestore.Client) {
+func seedRandomRootFolder(ctx context.Context, client *firestore.Client) {
 	id := uuid.Must(uuid.NewRandom()).String()
 	rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
 	rootDoc := &Folder{ID: id}
