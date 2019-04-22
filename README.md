@@ -17,9 +17,12 @@ go run *.go
 - Datastore
 
 Things to test:
-- entities can have arbitrary "map" / "metadata" fields
-- can collection + doc names repeat? e.g., `Folders/F1/Folders/F2`
-- can we do queries inside transactions? e.g., all children of a folder
+- Can 
+- Can document have a `map[string]string` field for arbitrary metadata? Yes.
+- Can collection and doc names repeat (e.g., `folders/F1/folders/F2`)? Yes.
+- Can we do queries inside transactions? e.g., all children of a folder
 - is there a 500 entity limit?
+- optimistic concurrency control
+- does delete throw an error if not found?
 - can we literally not do an Update after a Read, or is it just recommend we not?
 - are doc refs (path names) limited in number of chars?
