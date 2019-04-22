@@ -27,3 +27,24 @@ Things to test:
 - does delete throw an error if not found?
 - can we literally not do an Update after a Read, or is it just recommend we not?
 - are doc refs (path names) limited in number of chars?
+
+## To subcollection or not to subcollection
+```
+INFO[0006] Iterated over 52000 / 107251 (48.48%) sport roots in 2.266097114s 
+INFO[0009] Iterated over 52802 / 52802 (100.00%) sport subs in 1.61091644s 
+INFO[0011] Iterated over 50 / 107251 (0.05%) food roots in 1.653059588s 
+INFO[0011] Iterated over 25 / 25 (100.00%) food subs in 274.553941ms
+```
+
+We have:
+- 107251 documents in "folders", and of those
+  - 50 are foods
+  - 52000 are sports
+  - 55201 are random docs
+- 52802 documents in "folders/sports/folders"
+- 25 documents in "folders/foods/folders"
+
+You'd think querying for 50 food roots would be quick since the result set
+isn't very large, but it ends up taking ~1.6s.
+
+Querying for a small subcollection, on the other hand, is blazing fast: 274ms.

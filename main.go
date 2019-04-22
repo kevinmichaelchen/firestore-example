@@ -59,28 +59,27 @@ func main() {
 
 	seedStuff(ctx, client)
 
-	numRootsTotal := countItemsInCollection(ctx, client, "folders")
-	rootTime, numRoots := iterateOverRootCollection(ctx, client, "sports")
-	log.Infof("Iterated over %d / %d (%.2f%%) roots in %s",
-		numRoots,
-		numRootsTotal,
-		100 * (float64(numRoots) / float64(numRootsTotal)),
-		rootTime)
+	var totalRoots, n, t int
+	var e time.Duration
 
-	numSubsTotal := countItemsInCollection(ctx, client, "folders/sports/folders")
-	subTime, numSubs := iterateOverSubcollection(ctx, client)
-	log.Infof("Iterated over %d / %d (%.2f%%) subs in %s",
-		numSubs,
-		numSubsTotal,
-		100 * (float64(numSubs) / float64(numSubsTotal)),
-		subTime)
+	totalRoots = countItemsInCollection(ctx, client, "folders")
+	e, n = iterateOverRootCollection(ctx, client, "sports")
+	log.Infof("Iterated over %d / %d (%.2f%%) sport roots in %s",
+		n, totalRoots, 100 * (float64(n) / float64(totalRoots)), e)
 
-	foodTime, numFoods := iterateOverRootCollection(ctx, client, "food")
-	log.Infof("Iterated over %d / %d (%.2f%%) foods in %s",
-		numFoods,
-		numRootsTotal,
-		100 * (float64(numFoods) / float64(numRootsTotal)),
-		foodTime)
+	t = countItemsInCollection(ctx, client, "folders/sports/folders")
+	e, n = iterateOverSubcollection(ctx, client, "folders/sports/folders")
+	log.Infof("Iterated over %d / %d (%.2f%%) sport subs in %s",
+		n, t, 100 * (float64(n) / float64(t)), e)
+
+	e, n = iterateOverRootCollection(ctx, client, "food")
+	log.Infof("Iterated over %d / %d (%.2f%%) food roots in %s",
+		n, totalRoots, 100 * (float64(n) / float64(totalRoots)), e)
+
+	t = countItemsInCollection(ctx, client, "folders/foods/folders")
+	e, n = iterateOverSubcollection(ctx, client, "folders/foods/folders")
+	log.Infof("Iterated over %d / %d (%.2f%%) food subs in %s",
+		n, t, 100 * (float64(n) / float64(t)), e)
 }
 
 func countItemsInCollection(ctx context.Context, client *firestore.Client, path string) int {
@@ -96,9 +95,9 @@ func countItemsInCollection(ctx context.Context, client *firestore.Client, path 
 	return count
 }
 
-func iterateOverSubcollection(ctx context.Context, client *firestore.Client) (time.Duration, int) {
+func iterateOverSubcollection(ctx context.Context, client *firestore.Client, path string) (time.Duration, int) {
 	start := time.Now()
-	iter := client.Collection("folders/sports/folders").Documents(ctx)
+	iter := client.Collection(path).Documents(ctx)
 	count := iterate(ctx, client, iter)
 	return time.Since(start), count
 }
@@ -146,6 +145,12 @@ func seedStuff(ctx context.Context, client *firestore.Client) {
 		seedSubsport(ctx, client)
 	}
 
+	// Create a ton of subcollection foods
+	for i := 0; i < 25; i ++ {
+		log.Infof("Creating food doc #%d in subcollection", i)
+		seedSubfood(ctx, client)
+	}
+
 	// Create a ton of root-level collection sports
 	for i := 0; i < 0; i ++ {
 		log.Infof("Creating sport doc #%d in root-level collection", i)
@@ -157,6 +162,14 @@ func seedStuff(ctx context.Context, client *firestore.Client) {
 func seedSubsport(ctx context.Context, client *firestore.Client) {
 	id := uuid.Must(uuid.NewRandom()).String()
 	dr := client.Doc(fmt.Sprintf("folders/sports/folders/%s", id))
+	if _, err := dr.Set(ctx, &Folder{ID: id}); err != nil {
+		log.Fatalf("could not seed: %v", err)
+	}
+}
+
+func seedSubfood(ctx context.Context, client *firestore.Client) {
+	id := uuid.Must(uuid.NewRandom()).String()
+	dr := client.Doc(fmt.Sprintf("folders/foods/folders/%s", id))
 	if _, err := dr.Set(ctx, &Folder{ID: id}); err != nil {
 		log.Fatalf("could not seed: %v", err)
 	}
