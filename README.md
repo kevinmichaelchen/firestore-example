@@ -2,12 +2,12 @@
 
 ### In one tab, run
 ```bash
-gcloud beta emulators firestore start
+gcloud beta emulators firestore start --host-port=localhost:8080
 ```
 
 ### In another tab, run
 ```bash
-export FIRESTORE_EMULATOR_HOST=WHATEVER_THE_OTHER_TAB_SAYS
+export FIRESTORE_EMULATOR_HOST=localhost:8080
 go run *.go
 ``` 
 
