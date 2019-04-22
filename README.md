@@ -60,6 +60,9 @@ in a collection, it no longer exists.
 So to move a folder, we just need to recursively clone all descendant documents
 to their new paths, and then delete the old documents pointed to by the old paths.
 
+### Moving permissions
+If permissions are also subcollections, we'd move those over as well.
+
 ## Can entities support a string hashtable for metadata?
 Yes. Unlike Datastore entities, Firestore documents can have a 
 `map[string]string` field for arbitrary metadata.
