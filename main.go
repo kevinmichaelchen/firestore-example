@@ -179,7 +179,7 @@ func seedStuff(ctx context.Context, client *firestore.Client) {
 	}
 
 	// Create a ton of subcollection foods
-	for i := 0; i < 25; i++ {
+	for i := 0; i < 10; i++ {
 		log.Infof("Creating food doc #%d in subcollection", i)
 		seedSubfood(ctx, client)
 	}

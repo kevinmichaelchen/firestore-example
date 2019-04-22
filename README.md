@@ -78,8 +78,17 @@ If two transactions were simultaneously occurring, the first to commit would win
 When the second transaction tried to commit, it would fail since the timestamps 
 on the entities were changed by the first transaction.
 
+Per the Firestore docs:
+> A function calling a transaction (transaction function) might run more than once 
+if a concurrent edit affects a document that the transaction reads.
+
+So it seems like they use concurrency control on not just documents we write,
+but even on those we read!
+
 ## Does delete throw an error if the document is not found?
-No. The following code does not throw an error:
+No.
+
+The following code does not throw an error:
 ```golang
 if _, err := client.Doc("folders/bullshit").Delete(ctx); err != nil {
   log.Fatalf("could not delete document: %v", err)
@@ -87,8 +96,12 @@ if _, err := client.Doc("folders/bullshit").Delete(ctx); err != nil {
 ```
 
 ## Is there a 500 entity transaction limit?
-No. 
-
 Datastore infamously prevents you from modifying more than 500 entities per transaction.
 
-However, this limitation does not exist in Firestore. 
+Firestore does not have this limitation.
+
+Per the docs:
+> Each transaction or batch of writes can write to a maximum of 500 documents.
+
+However, when I actually try to test this, by calling `tx.Set` 501 times,
+no error occurs.  
