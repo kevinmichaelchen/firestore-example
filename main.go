@@ -56,11 +56,11 @@ type stats struct {
 
 func getStatsHeaders() []string {
 	return []string{
-		"name",
+		"collection",
 		"iter size",
 		"collection size",
 		"space iterated as %",
-		"avg iter.Next()",
+		//"avg iter.Next()",
 		"elapsed",
 	}
 }
@@ -72,7 +72,7 @@ func (s stats) toArray() []string {
 		strconv.Itoa(s.n),
 		strconv.Itoa(s.total),
 		fmt.Sprintf("%.2f%%", percentage),
-		s.avgIterNext.String(),
+		//s.avgIterNext.String(),
 		s.elapsed.String(),
 	}
 }
@@ -135,7 +135,7 @@ func main() {
 	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/sports/folders").Documents(ctx))
 	statistics = append(statistics, stats{
-		name:        "sports subs",
+		name:        "folders/sports/folders",
 		n:           n,
 		total:       t,
 		elapsed:     elapsed,
@@ -146,7 +146,7 @@ func main() {
 	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/sports/folders/hockey/folders").Documents(ctx))
 	statistics = append(statistics, stats{
-		name:        "hockey subs",
+		name:        "folders/sports/folders/hockey/folders",
 		n:           n,
 		total:       t,
 		elapsed:     elapsed,
@@ -157,7 +157,7 @@ func main() {
 	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/foods/folders").Documents(ctx))
 	statistics = append(statistics, stats{
-		name:        "food subs",
+		name:        "folders/foods/folders",
 		n:           n,
 		total:       t,
 		elapsed:     elapsed,
