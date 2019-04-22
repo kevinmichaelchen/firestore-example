@@ -67,6 +67,10 @@ func main() {
 	var totalRoots, n, t int
 	var e time.Duration
 
+	if _, err := client.Doc("folders/bullshit").Delete(ctx); err != nil {
+		log.Fatalf("could not delete bullshit: %v", err)
+	}
+
 	totalRoots = countItemsInCollection(ctx, client, "folders")
 
 	e, n = iterateOverRootCollection(ctx, client, SportsParent)
