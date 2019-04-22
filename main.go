@@ -56,10 +56,10 @@ type stats struct {
 
 func getStatsHeaders() []string {
 	return []string{
-		"collection",
-		"iter size",
-		"collection size",
-		"space iterated as %",
+		"coll",
+		"# iter",
+		"# coll",
+		"iter/coll",
 		//"avg iter.Next()",
 		"elapsed",
 	}
