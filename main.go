@@ -60,7 +60,7 @@ func main() {
 	seedStuff(ctx, client)
 
 	numRootsTotal := countItemsInCollection(ctx, client, "folders")
-	rootTime, numRoots := iterateOverRootCollection(ctx, client)
+	rootTime, numRoots := iterateOverRootCollection(ctx, client, "sports")
 	log.Infof("Iterated over %d / %d (%.2f%%) roots in %s",
 		numRoots,
 		numRootsTotal,
@@ -74,6 +74,13 @@ func main() {
 		numSubsTotal,
 		100 * (float64(numSubs) / float64(numSubsTotal)),
 		subTime)
+
+	foodTime, numFoods := iterateOverRootCollection(ctx, client, "food")
+	log.Infof("Iterated over %d / %d (%.2f%%) foods in %s",
+		numFoods,
+		numRootsTotal,
+		100 * (float64(numFoods) / float64(numRootsTotal)),
+		foodTime)
 }
 
 func countItemsInCollection(ctx context.Context, client *firestore.Client, path string) int {
@@ -96,9 +103,9 @@ func iterateOverSubcollection(ctx context.Context, client *firestore.Client) (ti
 	return time.Since(start), count
 }
 
-func iterateOverRootCollection(ctx context.Context, client *firestore.Client) (time.Duration, int) {
+func iterateOverRootCollection(ctx context.Context, client *firestore.Client, parentID string) (time.Duration, int) {
 	start := time.Now()
-	iter := client.Collection("folders").Where("ParentID", "==", "sports").Documents(ctx)
+	iter := client.Collection("folders").Where("ParentID", "==", parentID).Documents(ctx)
 	count := iterate(ctx, client, iter)
 	return time.Since(start), count
 }
@@ -121,14 +128,20 @@ func iterate(ctx context.Context, client *firestore.Client, iter *firestore.Docu
 }
 
 func seedStuff(ctx context.Context, client *firestore.Client) {
+	// Create some foods
+	for i := 0; i < 25; i ++ {
+		id := uuid.Must(uuid.NewRandom()).String()
+		seedFolder(ctx, client, id, "food")
+	}
+
 	// Create a ton of root-level folders
-	for i := 0; i < 0; i ++ {
+	for i := 0; i < 100; i ++ {
 		log.Infof("Creating random doc #%d folder in /folders", i)
 		seedRootFolder(ctx, client)
 	}
 
 	// Create a ton of subcollection sports
-	for i := 0; i < 200; i ++ {
+	for i := 0; i < 0; i ++ {
 		log.Infof("Creating sport doc #%d in subcollection", i)
 		seedSubsport(ctx, client)
 	}
@@ -136,7 +149,8 @@ func seedStuff(ctx context.Context, client *firestore.Client) {
 	// Create a ton of root-level collection sports
 	for i := 0; i < 0; i ++ {
 		log.Infof("Creating sport doc #%d in root-level collection", i)
-		seedSport(ctx, client)
+		id := uuid.Must(uuid.NewRandom()).String()
+		seedFolder(ctx, client, id, "sports")
 	}
 }
 
@@ -148,10 +162,9 @@ func seedSubsport(ctx context.Context, client *firestore.Client) {
 	}
 }
 
-func seedSport(ctx context.Context, client *firestore.Client) {
-	id := uuid.Must(uuid.NewRandom()).String()
+func seedFolder(ctx context.Context, client *firestore.Client, id, parentID string) {
 	rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
-	rootDoc := &Folder{ID: id, ParentID: "sports"}
+	rootDoc := &Folder{ID: id, ParentID: parentID}
 	if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
 		log.Fatalf("could not seed: %v", err)
 	}
