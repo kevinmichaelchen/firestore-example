@@ -11,8 +11,10 @@ export FIRESTORE_EMULATOR_HOST=localhost:8080
 go run *.go
 ``` 
 
-Currently having difficulty running a transaction.
-See https://github.com/GoogleCloudPlatform/golang-samples/blob/master/firestore/firestore_snippets/save.go#L312.
+## Differences from Datastore
+- You cannot call tx.Get after doing a write operation, lest you get `firestore: read after write in transaction`
+- Firestore has a built-in tx.Create function which will error if the document already exists.
+- Datastore
 
 Things to test:
 - entities can have arbitrary "map" / "metadata" fields

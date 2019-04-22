@@ -3,18 +3,21 @@ package main
 import (
 	"cloud.google.com/go/firestore"
 	"context"
+	"errors"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/iterator"
 	"os"
 )
 
 type Folder struct {
+	ID       string
 	ParentID string
 }
 
 func (f Folder) String() string {
-	return fmt.Sprintf("[ParentID=%s]", f.ParentID)
+	return fmt.Sprintf("[ID=%s, ParentID=%s]", f.ID, f.ParentID)
 }
 
 func main() {
@@ -22,7 +25,7 @@ func main() {
 
 	// Log the DB host
 	if addr := os.Getenv("FIRESTORE_EMULATOR_HOST"); addr != "" {
-		log.Info(addr)
+		log.Infof("Connecting to DB at %s", addr)
 	}
 
 	// Create client
@@ -31,6 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
+
 	// Close client when done.
 	defer client.Close()
 
@@ -38,15 +42,37 @@ func main() {
 	log.Info("Starting transaction")
 	if err := client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 
-		_, err := tx.Get(client.Doc("Folders/Sports"))
-		if err != nil {
-			return err
+		if err := tx.Set(
+			client.Doc("folders/sports"),
+			&Folder{
+				ID:       "sports",
+				ParentID: "",
+			}); err != nil {
+			return multierror.Append(
+				errors.New("couldn't create sports folder"),
+				err)
 		}
 
-		d := client.Doc("Folders/Sports")
-		f := &Folder{ParentID: ""}
-		if err := tx.Create(d, f); err != nil {
-			return err
+		if err := tx.Set(
+			client.Doc("folders/sports/folders/hockey"),
+			&Folder{
+				ID:       "hockey",
+				ParentID: "sports",
+			}); err != nil {
+			return multierror.Append(
+				errors.New("couldn't create hockey folder"),
+				err)
+		}
+
+		if err := tx.Set(
+			client.Doc("folders/sports/folders/baseball"),
+			&Folder{
+				ID:       "baseball",
+				ParentID: "sports",
+			}); err != nil {
+			return multierror.Append(
+				errors.New("couldn't create baseball folder"),
+				err)
 		}
 
 		return nil
@@ -54,18 +80,22 @@ func main() {
 		log.Fatalf("Failed to execute transaction: %v", err)
 	}
 
+	// Let's do a global query for all entities w/ NodeID = 1
 	log.Info("Querying")
 
-	// Let's do a global query for all entities w/ NodeID = 1
-
-	iter := client.Collection("Folders").Where("ParentID", "==", "sports").Documents(ctx)
+	// TODO Querying across subcollections is not currently supported in Cloud Firestore.
+	//  If you need to query data across collections, use root-level collections
+	iter := client.Collection("folders").Where("ParentID", "==", "sports").Documents(ctx)
 	for {
-		doc, err := iter.Next()
+		log.Info("iterating")
+		docsnap, err := iter.Next()
 		if err == iterator.Done {
+			log.Info("Done iterating.")
 			break
 		}
+		log.Info("map data", docsnap.Data())
 		var f Folder
-		if err := doc.DataTo(&f); err != nil {
+		if err := docsnap.DataTo(&f); err != nil {
 			log.Fatalf("Failed to iterate: %v", err)
 		}
 		log.Info("Found folder:", f)
