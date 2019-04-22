@@ -50,8 +50,19 @@ type stats struct {
 	name        string
 	n           int
 	total       int
-	elapsed     time.Duration
 	avgIterNext time.Duration
+	elapsed     time.Duration
+}
+
+func getStatsHeaders() []string {
+	return []string{
+		"name",
+		"iter size",
+		"collection size",
+		"space iterated as %",
+		"avg iter.Next()",
+		"elapsed",
+	}
 }
 
 func (s stats) toArray() []string {
@@ -61,8 +72,8 @@ func (s stats) toArray() []string {
 		strconv.Itoa(s.n),
 		strconv.Itoa(s.total),
 		fmt.Sprintf("%.2f%%", percentage),
-		s.elapsed.String(),
 		s.avgIterNext.String(),
+		s.elapsed.String(),
 	}
 }
 
@@ -84,7 +95,7 @@ func main() {
 	// Close client when done.
 	defer client.Close()
 
-	seedStuff(ctx, client)
+	//seedStuff(ctx, client)
 
 	var totalRoots, n, t int
 	var elapsed, avgIterNextDuration time.Duration
@@ -97,19 +108,23 @@ func main() {
 	totalRoots = countItemsInCollection(ctx, client, "folders")
 
 	var statistics []stats
-	table := tablewriter.NewWriter(log.New().Writer())
-	table.SetHeader([]string{
-		"name",
-		"iter size",
-		"collection size",
-		"space iterated as %",
-		"elapsed",
-		"avg iter.Next()",
-	})
+	//table := tablewriter.NewWriter(log.New().Writer())
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader(getStatsHeaders())
 
 	elapsed, avgIterNextDuration, n = iterateOverRootCollection(client.Collection("folders").Where("ParentID", "==", SportsParent).Documents(ctx))
 	statistics = append(statistics, stats{
 		name:        "sports roots",
+		n:           n,
+		total:       totalRoots,
+		elapsed:     elapsed,
+		avgIterNext: avgIterNextDuration,
+	})
+
+	elapsed, avgIterNextDuration, n = iterateOverRootCollection(
+		client.Collection("folders").Where("ParentID", "==", FoodParent).Documents(ctx))
+	statistics = append(statistics, stats{
+		name:        "food roots",
 		n:           n,
 		total:       totalRoots,
 		elapsed:     elapsed,
@@ -134,16 +149,6 @@ func main() {
 		name:        "hockey subs",
 		n:           n,
 		total:       t,
-		elapsed:     elapsed,
-		avgIterNext: avgIterNextDuration,
-	})
-
-	elapsed, avgIterNextDuration, n = iterateOverRootCollection(
-		client.Collection("folders").Where("ParentID", "==", FoodParent).Documents(ctx))
-	statistics = append(statistics, stats{
-		name:        "food roots",
-		n:           n,
-		total:       totalRoots,
 		elapsed:     elapsed,
 		avgIterNext: avgIterNextDuration,
 	})
