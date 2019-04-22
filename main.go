@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+const (
+	FoodParent   = "food"
+	SportsParent = "sports"
+)
+
 type Folder struct {
 	ID       string
 	ParentID string
@@ -63,23 +68,24 @@ func main() {
 	var e time.Duration
 
 	totalRoots = countItemsInCollection(ctx, client, "folders")
-	e, n = iterateOverRootCollection(ctx, client, "sports")
-	log.Infof("Iterated over %d / %d (%.2f%%) sport roots in %s",
-		n, totalRoots, 100 * (float64(n) / float64(totalRoots)), e)
+
+	e, n = iterateOverRootCollection(ctx, client, SportsParent)
+	log.Infof("Iterated over %d / %d (%.2f%%) sport ROOTS in %s",
+		n, totalRoots, 100*(float64(n)/float64(totalRoots)), e)
 
 	t = countItemsInCollection(ctx, client, "folders/sports/folders")
 	e, n = iterateOverSubcollection(ctx, client, "folders/sports/folders")
-	log.Infof("Iterated over %d / %d (%.2f%%) sport subs in %s",
-		n, t, 100 * (float64(n) / float64(t)), e)
+	log.Infof("Iterated over %d / %d (%.2f%%) sport SUBS in %s",
+		n, t, 100*(float64(n)/float64(t)), e)
 
-	e, n = iterateOverRootCollection(ctx, client, "food")
-	log.Infof("Iterated over %d / %d (%.2f%%) food roots in %s",
-		n, totalRoots, 100 * (float64(n) / float64(totalRoots)), e)
+	e, n = iterateOverRootCollection(ctx, client, FoodParent)
+	log.Infof("Iterated over %d / %d (%.2f%%) food ROOTS in %s",
+		n, totalRoots, 100*(float64(n)/float64(totalRoots)), e)
 
 	t = countItemsInCollection(ctx, client, "folders/foods/folders")
 	e, n = iterateOverSubcollection(ctx, client, "folders/foods/folders")
-	log.Infof("Iterated over %d / %d (%.2f%%) food subs in %s",
-		n, t, 100 * (float64(n) / float64(t)), e)
+	log.Infof("Iterated over %d / %d (%.2f%%) food SUBS in %s",
+		n, t, 100*(float64(n)/float64(t)), e)
 }
 
 func countItemsInCollection(ctx context.Context, client *firestore.Client, path string) int {
@@ -112,15 +118,15 @@ func iterateOverRootCollection(ctx context.Context, client *firestore.Client, pa
 func iterate(ctx context.Context, client *firestore.Client, iter *firestore.DocumentIterator) int {
 	count := 0
 	for {
-		docsnap, err := iter.Next()
+		_, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
-		var f Folder
 		count += 1
-		if err := docsnap.DataTo(&f); err != nil {
-			log.Fatalf("Failed to iterate: %v", err)
-		}
+		//var f Folder
+		//if err := docsnap.DataTo(&f); err != nil {
+		//	log.Fatalf("Failed to iterate: %v", err)
+		//}
 		//log.Info("Found folder:", f)
 	}
 	return count
@@ -128,34 +134,34 @@ func iterate(ctx context.Context, client *firestore.Client, iter *firestore.Docu
 
 func seedStuff(ctx context.Context, client *firestore.Client) {
 	// Create some foods
-	for i := 0; i < 25; i ++ {
+	for i := 0; i < 0; i++ {
 		id := uuid.Must(uuid.NewRandom()).String()
-		seedFolder(ctx, client, id, "food")
+		seedFolder(ctx, client, id, FoodParent)
 	}
 
 	// Create a ton of root-level folders
-	for i := 0; i < 100; i ++ {
+	for i := 0; i < 0; i++ {
 		log.Infof("Creating random doc #%d folder in /folders", i)
 		seedRootFolder(ctx, client)
 	}
 
 	// Create a ton of subcollection sports
-	for i := 0; i < 0; i ++ {
+	for i := 0; i < 0; i++ {
 		log.Infof("Creating sport doc #%d in subcollection", i)
 		seedSubsport(ctx, client)
 	}
 
 	// Create a ton of subcollection foods
-	for i := 0; i < 25; i ++ {
+	for i := 0; i < 25; i++ {
 		log.Infof("Creating food doc #%d in subcollection", i)
 		seedSubfood(ctx, client)
 	}
 
 	// Create a ton of root-level collection sports
-	for i := 0; i < 0; i ++ {
+	for i := 0; i < 0; i++ {
 		log.Infof("Creating sport doc #%d in root-level collection", i)
 		id := uuid.Must(uuid.NewRandom()).String()
-		seedFolder(ctx, client, id, "sports")
+		seedFolder(ctx, client, id, SportsParent)
 	}
 }
 
