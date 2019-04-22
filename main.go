@@ -85,7 +85,7 @@ func main() {
 
 	// TODO Querying across subcollections is not currently supported in Cloud Firestore.
 	//  If you need to query data across collections, use root-level collections
-	iter := client.Collection("folders").Where("ID", "==", "sports").Documents(ctx)
+	iter := client.Collection("folders/sports/folders").Where("ParentID", "==", "sports").Documents(ctx)
 	for {
 		docsnap, err := iter.Next()
 		if err == iterator.Done {
