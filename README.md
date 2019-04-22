@@ -17,7 +17,8 @@ go run *.go
 - Datastore
 
 Things to test:
-- Can 
+- Is querying a root level collection slower than querying for children of a subcollection?
+- Demonstrate recursive move of a subcollection.  
 - Can document have a `map[string]string` field for arbitrary metadata? Yes.
 - Can collection and doc names repeat (e.g., `folders/F1/folders/F2`)? Yes.
 - Can we do queries inside transactions? e.g., all children of a folder

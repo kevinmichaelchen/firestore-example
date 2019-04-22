@@ -4,10 +4,12 @@ import (
 	"cloud.google.com/go/firestore"
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/iterator"
 	"os"
+	"time"
 )
 
 type Folder struct {
@@ -29,7 +31,7 @@ func createFolder(ctx context.Context, tx *firestore.Transaction, dr *firestore.
 	if !isRootFolder {
 		f.ParentID = grandParent.ID
 	}
-	log.Infof("Creating folder: %s", f)
+	//log.Infof("Creating folder: %s", f)
 	err := tx.Set(dr, f)
 	if err != nil {
 		err = multierror.Append(fmt.Errorf("error creating folder: %s", dr.Path), err)
@@ -55,48 +57,74 @@ func main() {
 	// Close client when done.
 	defer client.Close()
 
-	// Start a transaction
-	log.Info("Starting transaction")
-	if err := client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+	seedStuff(ctx, client)
+	iterateOverSubcollection(ctx, client)
+	iterateOverRootCollection(ctx, client)
+}
 
-		if err := createFolder(ctx, tx, client.Doc("folders/sports")); err != nil {
-			return err
-		}
+func iterateOverSubcollection(ctx context.Context, client *firestore.Client) {
+	start := time.Now()
+	log.Info("Iterating over subcollection")
+	iter := client.Collection("folders/sports/folders").Documents(ctx)
+	count := iterate(ctx, client, iter)
+	log.Infof("Took %s to find %d folders", time.Since(start), count)
+}
 
-		if err := createFolder(ctx, tx, client.Doc("folders/sports/folders/hockey")); err != nil {
-			return err
-		}
+func iterateOverRootCollection(ctx context.Context, client *firestore.Client) {
+	start := time.Now()
+	log.Info("Iterating over root collection")
+	iter := client.Collection("folders").Where("ParentID", "==", "sports").Documents(ctx)
+	count := iterate(ctx, client, iter)
+	log.Infof("Took %s to find %d folders", time.Since(start), count)
+}
 
-		if err := createFolder(ctx, tx, client.Doc("folders/sports/folders/hockey/folders/field-hockey")); err != nil {
-			return err
-		}
-
-		if err := createFolder(ctx, tx, client.Doc("folders/sports/folders/hockey/folders/ice-hockey")); err != nil {
-			return err
-		}
-
-		if err := createFolder(ctx, tx, client.Doc("folders/sports/folders/baseball")); err != nil {
-			return err
-		}
-
-		return nil
-	}, firestore.MaxAttempts(1)); err != nil {
-		log.Fatalf("Failed to execute transaction: %v", err)
-	}
-
-	// Let's do a global query for all entities w/ NodeID = 1
-	log.Info("Querying")
-	iter := client.Collection("folders/sports/folders").Where("ParentID", "==", "sports").Documents(ctx)
+func iterate(ctx context.Context, client *firestore.Client, iter *firestore.DocumentIterator) int {
+	count := 0
 	for {
 		docsnap, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		var f Folder
+		count += 1
 		if err := docsnap.DataTo(&f); err != nil {
 			log.Fatalf("Failed to iterate: %v", err)
 		}
-		log.Info("Found folder:", f)
+		//log.Info("Found folder:", f)
 	}
-	log.Info("Done iterating.")
+	return count
+}
+
+func seedStuff(ctx context.Context, client *firestore.Client) {
+	// Create a ton of root-level folders
+	for i := 0; i < 5000; i ++ {
+		log.Infof("Creating random doc #%d folder in /folders", i)
+		id := uuid.Must(uuid.NewRandom()).String()
+		rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
+		rootDoc := &Folder{ID: id}
+
+		if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
+			log.Fatalf("could not seed: %v", err)
+		}
+	}
+
+	// Create a ton of sports
+	for i := 0; i < 5000; i ++ {
+		id := uuid.Must(uuid.NewRandom()).String()
+
+		// Put the sport in our subcollection
+		log.Infof("Creating sport doc #%d in subcollection", i)
+		dr := client.Doc(fmt.Sprintf("folders/sports/folders/%s", id))
+		if _, err := dr.Set(ctx, &Folder{ID: id, ParentID: "sports"}); err != nil {
+			log.Fatalf("could not seed: %v", err)
+		}
+
+		// Put the sport in our root-level collection
+		log.Infof("Creating sport doc #%d in root-level collection", i)
+		rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
+		rootDoc := &Folder{ID: id, ParentID: "sports"}
+		if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
+			log.Fatalf("could not seed: %v", err)
+		}
+	}
 }
