@@ -72,21 +72,31 @@ func main() {
 
 	totalRoots = countItemsInCollection(ctx, client, "folders")
 
-	e, n = iterateOverRootCollection(ctx, client, SportsParent)
+	e, n = iterateOverRootCollection(ctx, client,
+		client.Collection("folders").Where("ParentID", "==", SportsParent).Documents(ctx))
 	log.Infof("Iterated over %d / %d (%.2f%%) sport ROOTS in %s",
 		n, totalRoots, 100*(float64(n)/float64(totalRoots)), e)
 
 	t = countItemsInCollection(ctx, client, "folders/sports/folders")
-	e, n = iterateOverSubcollection(ctx, client, "folders/sports/folders")
+	e, n = iterateOverSubcollection(ctx, client,
+		client.Collection("folders/sports/folders").Documents(ctx))
 	log.Infof("Iterated over %d / %d (%.2f%%) sport SUBS in %s",
 		n, t, 100*(float64(n)/float64(t)), e)
 
-	e, n = iterateOverRootCollection(ctx, client, FoodParent)
+	t = countItemsInCollection(ctx, client, "folders/sports/folders/hockey/folders")
+	e, n = iterateOverSubcollection(ctx, client,
+		client.Collection("folders/sports/folders/hockey/folders").Documents(ctx))
+	log.Infof("Iterated over %d / %d (%.2f%%) hockey SUBS in %s",
+		n, t, 100*(float64(n)/float64(t)), e)
+
+	e, n = iterateOverRootCollection(ctx, client,
+		client.Collection("folders").Where("ParentID", "==", FoodParent).Documents(ctx))
 	log.Infof("Iterated over %d / %d (%.2f%%) food ROOTS in %s",
 		n, totalRoots, 100*(float64(n)/float64(totalRoots)), e)
 
 	t = countItemsInCollection(ctx, client, "folders/foods/folders")
-	e, n = iterateOverSubcollection(ctx, client, "folders/foods/folders")
+	e, n = iterateOverSubcollection(ctx, client,
+		client.Collection("folders/foods/folders").Documents(ctx))
 	log.Infof("Iterated over %d / %d (%.2f%%) food SUBS in %s",
 		n, t, 100*(float64(n)/float64(t)), e)
 }
@@ -128,16 +138,14 @@ func countItemsInCollection(ctx context.Context, client *firestore.Client, path 
 	return count
 }
 
-func iterateOverSubcollection(ctx context.Context, client *firestore.Client, path string) (time.Duration, int) {
+func iterateOverSubcollection(ctx context.Context, client *firestore.Client, iter *firestore.DocumentIterator) (time.Duration, int) {
 	start := time.Now()
-	iter := client.Collection(path).Documents(ctx)
 	count := iterate(ctx, client, iter)
 	return time.Since(start), count
 }
 
-func iterateOverRootCollection(ctx context.Context, client *firestore.Client, parentID string) (time.Duration, int) {
+func iterateOverRootCollection(ctx context.Context, client *firestore.Client, iter *firestore.DocumentIterator) (time.Duration, int) {
 	start := time.Now()
-	iter := client.Collection("folders").Where("ParentID", "==", parentID).Documents(ctx)
 	count := iterate(ctx, client, iter)
 	return time.Since(start), count
 }
