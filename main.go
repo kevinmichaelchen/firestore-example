@@ -65,40 +65,44 @@ func main() {
 	seedStuff(ctx, client)
 
 	var totalRoots, n, t int
-	var e time.Duration
+	var elapsed, avgIterNextDuration time.Duration
 
 	testDeletingNonExistentDoc(ctx, client)
 	testTransactionLimit(ctx, client)
 
 	totalRoots = countItemsInCollection(ctx, client, "folders")
 
-	e, n = iterateOverRootCollection(ctx, client,
-		client.Collection("folders").Where("ParentID", "==", SportsParent).Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) sport ROOTS in %s",
-		n, totalRoots, 100*(float64(n)/float64(totalRoots)), e)
+	elapsed, avgIterNextDuration, n = iterateOverRootCollection(client.Collection("folders").Where("ParentID", "==", SportsParent).Documents(ctx))
+	log.Infof("Iterated over %d / %d (%.2f%%) sport ROOTS in %s w/ avg iter.Next() taking %s",
+		n, totalRoots, 100*(float64(n)/float64(totalRoots)), elapsed, avgIterNextDuration)
+	log.Info("")
 
 	t = countItemsInCollection(ctx, client, "folders/sports/folders")
-	e, n = iterateOverSubcollection(ctx, client,
+	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/sports/folders").Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) sport SUBS in %s",
-		n, t, 100*(float64(n)/float64(t)), e)
+	log.Infof("Iterated over %d / %d (%.2f%%) sport SUBS in %s w/ avg iter.Next() taking %s",
+		n, t, 100*(float64(n)/float64(t)), elapsed, avgIterNextDuration)
+	log.Info("")
 
 	t = countItemsInCollection(ctx, client, "folders/sports/folders/hockey/folders")
-	e, n = iterateOverSubcollection(ctx, client,
+	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/sports/folders/hockey/folders").Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) hockey SUBS in %s",
-		n, t, 100*(float64(n)/float64(t)), e)
+	log.Infof("Iterated over %d / %d (%.2f%%) hockey SUBS in %s w/ avg iter.Next() taking %s",
+		n, t, 100*(float64(n)/float64(t)), elapsed, avgIterNextDuration)
+	log.Info("")
 
-	e, n = iterateOverRootCollection(ctx, client,
+	elapsed, avgIterNextDuration, n = iterateOverRootCollection(
 		client.Collection("folders").Where("ParentID", "==", FoodParent).Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) food ROOTS in %s",
-		n, totalRoots, 100*(float64(n)/float64(totalRoots)), e)
+	log.Infof("Iterated over %d / %d (%.2f%%) food ROOTS in %s w/ avg iter.Next() taking %s",
+		n, totalRoots, 100*(float64(n)/float64(totalRoots)), elapsed, avgIterNextDuration)
+	log.Info("")
 
 	t = countItemsInCollection(ctx, client, "folders/foods/folders")
-	e, n = iterateOverSubcollection(ctx, client,
+	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/foods/folders").Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) food SUBS in %s",
-		n, t, 100*(float64(n)/float64(t)), e)
+	log.Infof("Iterated over %d / %d (%.2f%%) food SUBS in %s w/ avg iter.Next() taking %s",
+		n, t, 100*(float64(n)/float64(t)), elapsed, avgIterNextDuration)
+	log.Info("")
 }
 
 func testDeletingNonExistentDoc(ctx context.Context, client *firestore.Client) {
@@ -138,33 +142,46 @@ func countItemsInCollection(ctx context.Context, client *firestore.Client, path 
 	return count
 }
 
-func iterateOverSubcollection(ctx context.Context, client *firestore.Client, iter *firestore.DocumentIterator) (time.Duration, int) {
-	start := time.Now()
-	count := iterate(ctx, client, iter)
-	return time.Since(start), count
+func avg(durations []time.Duration) time.Duration {
+	var ns int64
+	for _, duration := range durations {
+		ns += duration.Nanoseconds()
+	}
+	return time.Duration(int64(float64(ns)/float64(len(durations))))
 }
 
-func iterateOverRootCollection(ctx context.Context, client *firestore.Client, iter *firestore.DocumentIterator) (time.Duration, int) {
+func iterateOverSubcollection(iter *firestore.DocumentIterator) (time.Duration, time.Duration, int) {
 	start := time.Now()
-	count := iterate(ctx, client, iter)
-	return time.Since(start), count
+	avgIterNextDuration, count := iterate(iter)
+	elapsed := time.Since(start)
+	return elapsed, avgIterNextDuration, count
 }
 
-func iterate(ctx context.Context, client *firestore.Client, iter *firestore.DocumentIterator) int {
+func iterateOverRootCollection(iter *firestore.DocumentIterator) (time.Duration, time.Duration, int) {
+	start := time.Now()
+	avgIterNextDuration, count := iterate(iter)
+	elapsed := time.Since(start)
+	return elapsed, avgIterNextDuration, count
+}
+
+func iterate(iter *firestore.DocumentIterator) (time.Duration, int) {
 	count := 0
+	var durations []time.Duration
 	for {
+		start := time.Now()
 		_, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		count += 1
+		durations = append(durations, time.Since(start))
 		//var f Folder
 		//if err := docsnap.DataTo(&f); err != nil {
 		//	log.Fatalf("Failed to iterate: %v", err)
 		//}
 		//log.Info("Found folder:", f)
 	}
-	return count
+	return avg(durations), count
 }
 
 func seedStuff(ctx context.Context, client *firestore.Client) {
