@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
+	"github.com/olekukonko/tablewriter"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/iterator"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -44,6 +46,26 @@ func createFolder(ctx context.Context, tx *firestore.Transaction, dr *firestore.
 	return err
 }
 
+type stats struct {
+	name        string
+	n           int
+	total       int
+	elapsed     time.Duration
+	avgIterNext time.Duration
+}
+
+func (s stats) toArray() []string {
+	percentage := 100*(float64(s.n)/float64(s.total))
+	return []string{
+		s.name,
+		strconv.Itoa(s.n),
+		strconv.Itoa(s.total),
+		fmt.Sprintf("%.2f%%", percentage),
+		s.elapsed.String(),
+		s.avgIterNext.String(),
+	}
+}
+
 func main() {
 	ctx := context.TODO()
 
@@ -67,42 +89,82 @@ func main() {
 	var totalRoots, n, t int
 	var elapsed, avgIterNextDuration time.Duration
 
-	testDeletingNonExistentDoc(ctx, client)
-	testTransactionLimit(ctx, client)
+	//testDeletingNonExistentDoc(ctx, client)
+	//testTransactionLimit(ctx, client)
+
+	log.Info("Prepping stats")
 
 	totalRoots = countItemsInCollection(ctx, client, "folders")
 
+	var statistics []stats
+	table := tablewriter.NewWriter(log.New().Writer())
+	table.SetHeader([]string{
+		"name",
+		"iter size",
+		"collection size",
+		"space iterated as %",
+		"elapsed",
+		"avg iter.Next()",
+	})
+
 	elapsed, avgIterNextDuration, n = iterateOverRootCollection(client.Collection("folders").Where("ParentID", "==", SportsParent).Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) sport ROOTS in %s w/ avg iter.Next() taking %s",
-		n, totalRoots, 100*(float64(n)/float64(totalRoots)), elapsed, avgIterNextDuration)
-	log.Info("")
+	statistics = append(statistics, stats{
+		name:        "sports roots",
+		n:           n,
+		total:       totalRoots,
+		elapsed:     elapsed,
+		avgIterNext: avgIterNextDuration,
+	})
 
 	t = countItemsInCollection(ctx, client, "folders/sports/folders")
 	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/sports/folders").Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) sport SUBS in %s w/ avg iter.Next() taking %s",
-		n, t, 100*(float64(n)/float64(t)), elapsed, avgIterNextDuration)
-	log.Info("")
+	statistics = append(statistics, stats{
+		name:        "sports subs",
+		n:           n,
+		total:       t,
+		elapsed:     elapsed,
+		avgIterNext: avgIterNextDuration,
+	})
 
 	t = countItemsInCollection(ctx, client, "folders/sports/folders/hockey/folders")
 	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/sports/folders/hockey/folders").Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) hockey SUBS in %s w/ avg iter.Next() taking %s",
-		n, t, 100*(float64(n)/float64(t)), elapsed, avgIterNextDuration)
-	log.Info("")
+	statistics = append(statistics, stats{
+		name:        "hockey subs",
+		n:           n,
+		total:       t,
+		elapsed:     elapsed,
+		avgIterNext: avgIterNextDuration,
+	})
 
 	elapsed, avgIterNextDuration, n = iterateOverRootCollection(
 		client.Collection("folders").Where("ParentID", "==", FoodParent).Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) food ROOTS in %s w/ avg iter.Next() taking %s",
-		n, totalRoots, 100*(float64(n)/float64(totalRoots)), elapsed, avgIterNextDuration)
-	log.Info("")
+	statistics = append(statistics, stats{
+		name:        "food roots",
+		n:           n,
+		total:       totalRoots,
+		elapsed:     elapsed,
+		avgIterNext: avgIterNextDuration,
+	})
 
 	t = countItemsInCollection(ctx, client, "folders/foods/folders")
 	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
 		client.Collection("folders/foods/folders").Documents(ctx))
-	log.Infof("Iterated over %d / %d (%.2f%%) food SUBS in %s w/ avg iter.Next() taking %s",
-		n, t, 100*(float64(n)/float64(t)), elapsed, avgIterNextDuration)
-	log.Info("")
+	statistics = append(statistics, stats{
+		name:        "food subs",
+		n:           n,
+		total:       t,
+		elapsed:     elapsed,
+		avgIterNext: avgIterNextDuration,
+	})
+
+	for _, s := range statistics {
+		table.Append(s.toArray())
+	}
+
+	// Send output
+	table.Render()
 }
 
 func testDeletingNonExistentDoc(ctx context.Context, client *firestore.Client) {
@@ -147,7 +209,7 @@ func avg(durations []time.Duration) time.Duration {
 	for _, duration := range durations {
 		ns += duration.Nanoseconds()
 	}
-	return time.Duration(int64(float64(ns)/float64(len(durations))))
+	return time.Duration(int64(float64(ns) / float64(len(durations))))
 }
 
 func iterateOverSubcollection(iter *firestore.DocumentIterator) (time.Duration, time.Duration, int) {
