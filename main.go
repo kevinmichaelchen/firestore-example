@@ -61,11 +61,19 @@ func main() {
 
 	numRootsTotal := countItemsInCollection(ctx, client, "folders")
 	rootTime, numRoots := iterateOverRootCollection(ctx, client)
-	log.Infof("Iterated over %d / %d (%d%%) roots in %s", numRoots, numRootsTotal, rootTime)
+	log.Infof("Iterated over %d / %d (%.2f%%) roots in %s",
+		numRoots,
+		numRootsTotal,
+		100 * (float64(numRoots) / float64(numRootsTotal)),
+		rootTime)
 
 	numSubsTotal := countItemsInCollection(ctx, client, "folders/sports/folders")
 	subTime, numSubs := iterateOverSubcollection(ctx, client)
-	log.Infof("Iterated over %d / %d (%d%%) subs in %s", numSubs, numSubsTotal, subTime)
+	log.Infof("Iterated over %d / %d (%.2f%%) subs in %s",
+		numSubs,
+		numSubsTotal,
+		100 * (float64(numSubs) / float64(numSubsTotal)),
+		subTime)
 }
 
 func countItemsInCollection(ctx context.Context, client *firestore.Client, path string) int {
@@ -120,7 +128,7 @@ func seedStuff(ctx context.Context, client *firestore.Client) {
 	}
 
 	// Create a ton of subcollection sports
-	for i := 0; i < 2000; i ++ {
+	for i := 0; i < 200; i ++ {
 		log.Infof("Creating sport doc #%d in subcollection", i)
 		seedSubsport(ctx, client)
 	}
