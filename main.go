@@ -58,24 +58,41 @@ func main() {
 	defer client.Close()
 
 	seedStuff(ctx, client)
-	iterateOverSubcollection(ctx, client)
-	iterateOverRootCollection(ctx, client)
+
+	numRootsTotal := countItemsInCollection(ctx, client, "folders")
+	rootTime, numRoots := iterateOverRootCollection(ctx, client)
+	log.Infof("Iterated over %d / %d (%d%%) roots in %s", numRoots, numRootsTotal, rootTime)
+
+	numSubsTotal := countItemsInCollection(ctx, client, "folders/sports/folders")
+	subTime, numSubs := iterateOverSubcollection(ctx, client)
+	log.Infof("Iterated over %d / %d (%d%%) subs in %s", numSubs, numSubsTotal, subTime)
 }
 
-func iterateOverSubcollection(ctx context.Context, client *firestore.Client) {
+func countItemsInCollection(ctx context.Context, client *firestore.Client, path string) int {
+	iter := client.Collection(path).Documents(ctx)
+	count := 0
+	for {
+		_, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		count += 1
+	}
+	return count
+}
+
+func iterateOverSubcollection(ctx context.Context, client *firestore.Client) (time.Duration, int) {
 	start := time.Now()
-	log.Info("Iterating over subcollection")
 	iter := client.Collection("folders/sports/folders").Documents(ctx)
 	count := iterate(ctx, client, iter)
-	log.Infof("Took %s to find %d folders", time.Since(start), count)
+	return time.Since(start), count
 }
 
-func iterateOverRootCollection(ctx context.Context, client *firestore.Client) {
+func iterateOverRootCollection(ctx context.Context, client *firestore.Client) (time.Duration, int) {
 	start := time.Now()
-	log.Info("Iterating over root collection")
 	iter := client.Collection("folders").Where("ParentID", "==", "sports").Documents(ctx)
 	count := iterate(ctx, client, iter)
-	log.Infof("Took %s to find %d folders", time.Since(start), count)
+	return time.Since(start), count
 }
 
 func iterate(ctx context.Context, client *firestore.Client, iter *firestore.DocumentIterator) int {
@@ -97,34 +114,47 @@ func iterate(ctx context.Context, client *firestore.Client, iter *firestore.Docu
 
 func seedStuff(ctx context.Context, client *firestore.Client) {
 	// Create a ton of root-level folders
-	for i := 0; i < 5000; i ++ {
+	for i := 0; i < 0; i ++ {
 		log.Infof("Creating random doc #%d folder in /folders", i)
-		id := uuid.Must(uuid.NewRandom()).String()
-		rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
-		rootDoc := &Folder{ID: id}
-
-		if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
-			log.Fatalf("could not seed: %v", err)
-		}
+		seedRootFolder(ctx, client)
 	}
 
-	// Create a ton of sports
-	for i := 0; i < 5000; i ++ {
-		id := uuid.Must(uuid.NewRandom()).String()
-
-		// Put the sport in our subcollection
+	// Create a ton of subcollection sports
+	for i := 0; i < 2000; i ++ {
 		log.Infof("Creating sport doc #%d in subcollection", i)
-		dr := client.Doc(fmt.Sprintf("folders/sports/folders/%s", id))
-		if _, err := dr.Set(ctx, &Folder{ID: id, ParentID: "sports"}); err != nil {
-			log.Fatalf("could not seed: %v", err)
-		}
+		seedSubsport(ctx, client)
+	}
 
-		// Put the sport in our root-level collection
+	// Create a ton of root-level collection sports
+	for i := 0; i < 0; i ++ {
 		log.Infof("Creating sport doc #%d in root-level collection", i)
-		rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
-		rootDoc := &Folder{ID: id, ParentID: "sports"}
-		if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
-			log.Fatalf("could not seed: %v", err)
-		}
+		seedSport(ctx, client)
+	}
+}
+
+func seedSubsport(ctx context.Context, client *firestore.Client) {
+	id := uuid.Must(uuid.NewRandom()).String()
+	dr := client.Doc(fmt.Sprintf("folders/sports/folders/%s", id))
+	if _, err := dr.Set(ctx, &Folder{ID: id}); err != nil {
+		log.Fatalf("could not seed: %v", err)
+	}
+}
+
+func seedSport(ctx context.Context, client *firestore.Client) {
+	id := uuid.Must(uuid.NewRandom()).String()
+	rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
+	rootDoc := &Folder{ID: id, ParentID: "sports"}
+	if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
+		log.Fatalf("could not seed: %v", err)
+	}
+}
+
+func seedRootFolder(ctx context.Context, client *firestore.Client) {
+	id := uuid.Must(uuid.NewRandom()).String()
+	rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
+	rootDoc := &Folder{ID: id}
+
+	if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
+		log.Fatalf("could not seed: %v", err)
 	}
 }
