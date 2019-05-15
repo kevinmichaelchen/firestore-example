@@ -4,86 +4,30 @@ import (
 	"cloud.google.com/go/firestore"
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hashicorp/go-multierror"
-	"github.com/olekukonko/tablewriter"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/iterator"
-	"os"
-	"strconv"
-	"time"
 )
 
-const (
-	FoodParent   = "food"
-	SportsParent = "sports"
-)
-
-type Folder struct {
-	ID       string
-	ParentID string
-	Metadata map[string]string
+type User struct {
+	ID string
 }
 
-func (f Folder) String() string {
-	return fmt.Sprintf("[ID=%s, ParentID=%s, Metadata=%s]", f.ID, f.ParentID, f.Metadata)
+func (u User) String() string {
+	return fmt.Sprintf("user %s", u.ID)
 }
 
-func createFolder(ctx context.Context, tx *firestore.Transaction, dr *firestore.DocumentRef) error {
-	grandParent := dr.Parent.Parent
-	isRootFolder := grandParent == nil
-	f := &Folder{
-		ID: dr.ID,
-	}
-	if !isRootFolder {
-		f.ParentID = grandParent.ID
-	}
-	//log.Infof("Creating folder: %s", f)
-	err := tx.Set(dr, f)
-	if err != nil {
-		err = multierror.Append(fmt.Errorf("error creating folder: %s", dr.Path), err)
-	}
-	return err
+type Session struct {
+	ID string
 }
 
-type stats struct {
-	name        string
-	n           int
-	total       int
-	avgIterNext time.Duration
-	elapsed     time.Duration
-}
-
-func getStatsHeaders() []string {
-	return []string{
-		"coll",
-		"# iter",
-		"# coll",
-		"iter/coll",
-		//"avg iter.Next()",
-		"elapsed",
-	}
-}
-
-func (s stats) toArray() []string {
-	percentage := 100*(float64(s.n)/float64(s.total))
-	return []string{
-		s.name,
-		strconv.Itoa(s.n),
-		strconv.Itoa(s.total),
-		fmt.Sprintf("%.2f%%", percentage),
-		//s.avgIterNext.String(),
-		s.elapsed.String(),
-	}
+func (u Session) String() string {
+	return fmt.Sprintf("session %s", u.ID)
 }
 
 func main() {
-	ctx := context.TODO()
+	log.Info("hi")
 
-	// Log the DB host
-	if addr := os.Getenv("FIRESTORE_EMULATOR_HOST"); addr != "" {
-		log.Infof("Connecting to DB at %s", addr)
-	}
+	ctx := context.TODO()
 
 	// Create client
 	log.Info("Creating client")
@@ -95,225 +39,88 @@ func main() {
 	// Close client when done.
 	defer client.Close()
 
-	//seedStuff(ctx, client)
-
-	var totalRoots, n, t int
-	var elapsed, avgIterNextDuration time.Duration
-
-	//testDeletingNonExistentDoc(ctx, client)
-	//testTransactionLimit(ctx, client)
-
-	log.Info("Prepping stats")
-
-	totalRoots = countItemsInCollection(ctx, client, "folders")
-
-	var statistics []stats
-	//table := tablewriter.NewWriter(log.New().Writer())
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader(getStatsHeaders())
-
-	elapsed, avgIterNextDuration, n = iterateOverRootCollection(client.Collection("folders").Where("ParentID", "==", SportsParent).Documents(ctx))
-	statistics = append(statistics, stats{
-		name:        "sports roots",
-		n:           n,
-		total:       totalRoots,
-		elapsed:     elapsed,
-		avgIterNext: avgIterNextDuration,
-	})
-
-	elapsed, avgIterNextDuration, n = iterateOverRootCollection(
-		client.Collection("folders").Where("ParentID", "==", FoodParent).Documents(ctx))
-	statistics = append(statistics, stats{
-		name:        "food roots",
-		n:           n,
-		total:       totalRoots,
-		elapsed:     elapsed,
-		avgIterNext: avgIterNextDuration,
-	})
-
-	t = countItemsInCollection(ctx, client, "folders/sports/folders")
-	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
-		client.Collection("folders/sports/folders").Documents(ctx))
-	statistics = append(statistics, stats{
-		name:        "folders/sports/folders",
-		n:           n,
-		total:       t,
-		elapsed:     elapsed,
-		avgIterNext: avgIterNextDuration,
-	})
-
-	t = countItemsInCollection(ctx, client, "folders/sports/folders/hockey/folders")
-	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
-		client.Collection("folders/sports/folders/hockey/folders").Documents(ctx))
-	statistics = append(statistics, stats{
-		name:        "folders/sports/folders/hockey/folders",
-		n:           n,
-		total:       t,
-		elapsed:     elapsed,
-		avgIterNext: avgIterNextDuration,
-	})
-
-	t = countItemsInCollection(ctx, client, "folders/foods/folders")
-	elapsed, avgIterNextDuration, n = iterateOverSubcollection(
-		client.Collection("folders/foods/folders").Documents(ctx))
-	statistics = append(statistics, stats{
-		name:        "folders/foods/folders",
-		n:           n,
-		total:       t,
-		elapsed:     elapsed,
-		avgIterNext: avgIterNextDuration,
-	})
-
-	for _, s := range statistics {
-		table.Append(s.toArray())
-	}
-
-	// Send output
-	table.Render()
-}
-
-func testDeletingNonExistentDoc(ctx context.Context, client *firestore.Client) {
-	if _, err := client.Doc("folders/bullshit").Delete(ctx); err != nil {
-		log.Fatalf("could not delete bullshit: %v", err)
-	}
-}
-
-func testTransactionLimit(ctx context.Context, client *firestore.Client) {
-	err := client.RunTransaction(ctx, func(c context.Context, tx *firestore.Transaction) error {
-		for i := 0; i < 501; i++ {
-			id := uuid.Must(uuid.NewRandom()).String()
-			rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
-			rootDoc := &Folder{ID: id}
-
-			if err := tx.Set(rootLevelDocumentRef, rootDoc); err != nil {
-				return err
-			}
+	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		userDocRef := client.Collection("users").Doc("1")
+		if err := tx.Set(userDocRef, &User{
+			ID: "1",
+		}); err != nil {
+			return err
 		}
+
+		sessionDocRef := userDocRef.Collection("sessions").Doc("1")
+		if err := tx.Set(sessionDocRef, &Session{
+			ID: "1",
+		}); err != nil {
+			return err
+		}
+
 		return nil
 	})
+
 	if err != nil {
-		log.Fatalf("transaction threw error: %v", err)
+		panic(err)
 	}
-}
 
-func countItemsInCollection(ctx context.Context, client *firestore.Client, path string) int {
-	iter := client.Collection(path).Documents(ctx)
-	count := 0
-	for {
-		_, err := iter.Next()
-		if err == iterator.Done {
-			break
+	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		userDocRef := client.Collection("users").Doc("1")
+
+		ds, err := tx.Get(userDocRef)
+		if err != nil {
+			return err
 		}
-		count += 1
-	}
-	return count
-}
-
-func avg(durations []time.Duration) time.Duration {
-	var ns int64
-	for _, duration := range durations {
-		ns += duration.Nanoseconds()
-	}
-	return time.Duration(int64(float64(ns) / float64(len(durations))))
-}
-
-func iterateOverSubcollection(iter *firestore.DocumentIterator) (time.Duration, time.Duration, int) {
-	start := time.Now()
-	avgIterNextDuration, count := iterate(iter)
-	elapsed := time.Since(start)
-	return elapsed, avgIterNextDuration, count
-}
-
-func iterateOverRootCollection(iter *firestore.DocumentIterator) (time.Duration, time.Duration, int) {
-	start := time.Now()
-	avgIterNextDuration, count := iterate(iter)
-	elapsed := time.Since(start)
-	return elapsed, avgIterNextDuration, count
-}
-
-func iterate(iter *firestore.DocumentIterator) (time.Duration, int) {
-	count := 0
-	var durations []time.Duration
-	for {
-		start := time.Now()
-		_, err := iter.Next()
-		if err == iterator.Done {
-			break
+		var u User
+		if err := ds.DataTo(&u); err != nil {
+			return err
 		}
-		count += 1
-		durations = append(durations, time.Since(start))
-		//var f Folder
-		//if err := docsnap.DataTo(&f); err != nil {
-		//	log.Fatalf("Failed to iterate: %v", err)
-		//}
-		//log.Info("Found folder:", f)
-	}
-	return avg(durations), count
-}
+		log.Infof("tx user = %s", u)
 
-func seedStuff(ctx context.Context, client *firestore.Client) {
-	// Create some foods
-	for i := 0; i < 0; i++ {
-		id := uuid.Must(uuid.NewRandom()).String()
-		seedFolder(ctx, client, id, FoodParent)
-	}
+		clientIter := userDocRef.Collection("sessions").Documents(ctx)
+		for {
+			ds, err := clientIter.Next()
+			if err == iterator.Done {
+				break
+			} else if err != nil {
+				log.Warnf("client iter error: %v", err)
+				break
+			} else if ds == nil {
+				log.Warn("nil doc snapshot")
+				break
+			}
 
-	// Create a ton of root-level folders
-	for i := 0; i < 0; i++ {
-		log.Infof("Creating random doc #%d folder in /folders", i)
-		seedRandomRootFolder(ctx, client)
-	}
+			var s Session
+			if err := ds.DataTo(&s); err != nil {
+				return err
+			}
+			log.Infof("client session = %s", s)
+		}
 
-	// Create a ton of subcollection sports
-	for i := 0; i < 0; i++ {
-		log.Infof("Creating sport doc #%d in subcollection", i)
-		seedSubsport(ctx, client)
-	}
+		log.Info("ITERATING WITH TRANSACTION...")
 
-	// Create a ton of subcollection foods
-	for i := 0; i < 10; i++ {
-		log.Infof("Creating food doc #%d in subcollection", i)
-		seedSubfood(ctx, client)
-	}
+		txIter := tx.Documents(userDocRef.Collection("sessions"))
+		for {
+			ds, err := txIter.Next()
+			if err == iterator.Done {
+				break
+			} else if err != nil {
+				log.Warnf("tx iter error: %v", err)
+				break
+			} else if ds == nil {
+				log.Warn("nil doc snapshot")
+				break
+			}
 
-	// Create a ton of root-level collection sports
-	for i := 0; i < 0; i++ {
-		log.Infof("Creating sport doc #%d in root-level collection", i)
-		id := uuid.Must(uuid.NewRandom()).String()
-		seedFolder(ctx, client, id, SportsParent)
-	}
-}
+			var s Session
+			if err := ds.DataTo(&s); err != nil {
+				return err
+			}
+			log.Infof("tx session = %s", s)
+		}
 
-func seedSubsport(ctx context.Context, client *firestore.Client) {
-	id := uuid.Must(uuid.NewRandom()).String()
-	dr := client.Doc(fmt.Sprintf("folders/sports/folders/%s", id))
-	if _, err := dr.Set(ctx, &Folder{ID: id}); err != nil {
-		log.Fatalf("could not seed: %v", err)
-	}
-}
+		return nil
+	})
 
-func seedSubfood(ctx context.Context, client *firestore.Client) {
-	id := uuid.Must(uuid.NewRandom()).String()
-	dr := client.Doc(fmt.Sprintf("folders/foods/folders/%s", id))
-	if _, err := dr.Set(ctx, &Folder{ID: id}); err != nil {
-		log.Fatalf("could not seed: %v", err)
+	if err != nil {
+		panic(err)
 	}
 }
 
-func seedFolder(ctx context.Context, client *firestore.Client, id, parentID string) {
-	rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
-	rootDoc := &Folder{ID: id, ParentID: parentID}
-	if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
-		log.Fatalf("could not seed: %v", err)
-	}
-}
-
-func seedRandomRootFolder(ctx context.Context, client *firestore.Client) {
-	id := uuid.Must(uuid.NewRandom()).String()
-	rootLevelDocumentRef := client.Doc(fmt.Sprintf("folders/%s", id))
-	rootDoc := &Folder{ID: id}
-
-	if _, err := rootLevelDocumentRef.Set(ctx, rootDoc); err != nil {
-		log.Fatalf("could not seed: %v", err)
-	}
-}
